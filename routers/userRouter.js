@@ -1,11 +1,11 @@
 const express = require('express')
 const upload = require('../utils/multer.js')
-const { registerUser, logInUser, verifyEmail, resendVerification, forgotPassword, changePassword, resetPassword, makeAdmin, getAllUsers, getOneUser, updateUser, removeUser } = require('../controllers/userController.js')
+const { registerUser, logInUser, verifyEmail, resendVerification, forgotPassword, changePassword, resetPassword, makeAdmin, getAllUsers, getOneUser, updateUser, removeUser, logOut } = require('../controllers/userController.js')
 const { logInValidator, signUpValidator } = require('../middleware/validator.js')
 const { authentication, isAdmin } = require('../middleware/authorization.js')
 const router = express.Router()
 
-router.post('/sign-up',signUpValidator,registerUser)
+router.post('/sign-up',signUpValidator,upload.single('profilePic'),registerUser)
 router.post(`/log-in`,logInValidator, logInUser)
 router.put("/make-admin/:userId", makeAdmin)
 router.get(`/verify/:token`, verifyEmail)
@@ -17,5 +17,6 @@ router.get('/one/:userId', getOneUser)
 router.get('/all',authentication,isAdmin,getAllUsers)
 router.put('/update/:userId', upload.single('profilePic'), updateUser)
 router.delete(`/remove/:userId`,authentication,isAdmin,removeUser)
+router.post('/sign-out/userId',logOut);
 
 module.exports = router

@@ -41,7 +41,7 @@ const userSchema = new mongoose.Schema({
     },
     profilePic: {
         type: String,
-        require: true
+        require: false
     },
     gender:{
         type: String,
@@ -69,6 +69,7 @@ const userSchema = new mongoose.Schema({
     password:{
         type:String
     },
+    blackList:[],
     isAdmin:{
         type:Boolean,
         default:false

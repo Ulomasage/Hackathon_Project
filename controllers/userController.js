@@ -1,65 +1,110 @@
-const UserModel = require('../models/userModel');
-const fs = require('fs')
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const cloudinary = require('../utils/cloudinary.js')
-const sendMail = require(`../helpers/sendMail.js`);
-const { signUpTemplate,verifyTemplate,} = require(`../helpers/htmlTemplate.js`);
-
-
+const UserModel = require('../models/UserModel'); 
+const sendMail = require('../utils/sendMail'); 
+const signUpTemplate = require('../templates/signUpTemplate'); 
+const cloudinary = require('../utils/cloudinary')
 exports.registerUser = async (req, res) => {
   try {
-      const {fullName,email,password,address,gender,phoneNumber,confirmPassword,EmergencyPhoneNumbers,EmergencyEmails} = req.body;
-      if(!fullName || !email || !password || !address || !gender || !phoneNumber || !confirmPassword){
-          return res.status(400).json({message:"kindly enter all details"})
-      };
-      const existingUser = await UserModel.findOne({email})
-      if(existingUser){
-      return res.status(400).json({message:"user already exist"})
+    const { 
+      fullName, 
+      email, 
+      password, 
+      address, 
+      gender, 
+      phoneNumber, 
+      confirmPassword, 
+      EmergencyPhoneNumbers, 
+      EmergencyEmails 
+    } = req.body;
+
+    // Check if all required fields are provided
+    if (!fullName || !email || !password || !address || !gender || !phoneNumber || !confirmPassword) {
+      return res.status(400).json({ message: "Kindly enter all details" });
+    }
+
+    // Check if password and confirmPassword match
+    if (confirmPassword !== password) {
+      return res.status(400).json({ message: "Password does not match, kindly fill in your password" });
+    }
+
+    // Validate emergency contacts and emails
+    const minContacts = 3;
+    const maxContacts = 5;
+
+    if (EmergencyPhoneNumbers.length < minContacts || EmergencyPhoneNumbers.length > maxContacts) {
+      return res.status(400).json({ 
+        message: `Emergency phone numbers must be between ${minContacts} and ${maxContacts}. You provided ${EmergencyPhoneNumbers.length}.` 
+      });
+    }
+
+    if (EmergencyEmails.length < minContacts || EmergencyEmails.length > maxContacts) {
+      return res.status(400).json({ 
+        message: `Emergency emails must be between ${minContacts} and ${maxContacts}. You provided ${EmergencyEmails.length}.` 
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await UserModel.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    // Hash the password
+    const saltedPassword = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(password, saltedPassword);
+
+      // Handle profile picture upload
+      let profilePicUrl = '';
+      if (req.file) {
+        const result = await cloudinary.uploader.upload(req.file.path);
+        profilePicUrl = result.secure_url;
       }
-      if(confirmPassword !== password){
-        return res.status(400).json({message:"password does not match, kindly fill in your password"})
-       }else{
-      const saltedPassword = await bcrypt.genSalt(12)
-      const hashedPassword = await bcrypt.hash(password,saltedPassword)
-       
-      
-       const user = new UserModel({
-          fullName,
-          address,
-          gender,        
-          email:email.toLowerCase(),
-          password:hashedPassword,
-          phoneNumber,
-          EmergencyPhoneNumbers,
-          EmergencyEmails
-      })
-      const userToken = jwt.sign(
-        { id: user._id, email: user.email },
-        process.env.jwt_secret,
-        { expiresIn: "3 Minutes" }
+
+    // Create a new user
+    const user = new UserModel({
+      fullName,
+      address,
+      gender,
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      phoneNumber,
+      EmergencyPhoneNumbers,
+      EmergencyEmails,
+      profilePic: profilePicUrl
+    });
+
+    // Create a JWT token
+    const userToken = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.jwt_secret,
+      { expiresIn: "3m" } // Changed to 3 minutes
     );
+
+    // Generate verification link
     const verifyLink = `${req.protocol}://${req.get("host")}/api/v1/user/verify/${userToken}`;
+
+    // Save the user and send verification email
     await user.save();
     await sendMail({
-        subject: `Kindly Verify your mail`,
-        email: user.email,
-        html: signUpTemplate(verifyLink, user.fullName),
+      subject: "Kindly Verify Your Mail",
+      email: user.email,
+      html: signUpTemplate(verifyLink, user.fullName),
     });
-      res.status(201).json({
-          status:'created successfully',
-          message: `Welcome ${user.fullName} to ALERTIFY, kindly check your mail to access your link to verify your account`,
-          data: user,
-      });
-  }
-  } catch (error) {
-      res.status(500).json({
-          message: error.message
-      })
-  }
-}
 
-1
+    res.status(201).json({
+      status: 'Created successfully',
+      message: `Welcome ${user.fullName} to ALERTIFY. Kindly check your mail to access the link to verify your account.`,
+      data: user,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message
+    });
+  }
+};
+
 exports.logInUser = async(req,res)=>{
   try {
      const {email,password}=req.body
@@ -114,8 +159,7 @@ exports.verifyEmail = async(req,res)=>{
           }
       user.isVerified=true
       await user.save()
-
-      res.status(200).json({
+       res.status(200).json({
           message:"user verification successful", data:user
          })
 
@@ -351,4 +395,37 @@ exports.getOneUser = async (req, res) => {
           message: error.message
       })
   }
+}
+
+
+exports.logOut = async (req, res) => {
+    try {
+        const auth = req.headers.authorization;
+        const token = auth.split(' ')[1];
+        if(!token){
+            return res.status(401).json({
+                message: 'invalid token'
+            })
+        }
+        // Verify the user's token and extract the user's email from the token
+        const { email } = jwt.verify(token, process.env.JWT_SECRET);
+        // Find the user by ID
+        const user = await UserModel.findOne({ email });
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found"
+            });
+        }
+        user.blackList.push(token);
+        // Save the changes to the database
+        await user.save();
+        //   Send a success response
+        res.status(200).json({
+            message: "User logged out successfully"
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: error.message
+        });
+    }
 }
