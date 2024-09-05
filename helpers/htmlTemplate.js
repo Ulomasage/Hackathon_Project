@@ -160,5 +160,129 @@ exports.verifyTemplate = (verifyLink, fullName) => {
     `
 }
 
+// emergencyContactTemplate.js
+exports.emergencyContactTemplate = (userName, contactName) => {
+    return `
+      <html>
+        <body>
+          <h1>Hello ${contactName},</h1>
+          <p>You have been added as an emergency contact by <strong>${userName}</strong> on the Alertify app.</p>
+          <p>Please be prepared to receive notifications in case of any emergencies.</p>
+          <br/>
+          <p>Best regards,</p>
+          <p>The Alertify Team</p>
+        </body>
+      </html>
+    `;
+  };
+
+
+module.exports = function generateDistressTemplate(user, preciseLocation, deviceInfo) {
+    return `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9f9f9;">
+            <header style="background-color: red; color: white; text-align: center; padding: 10px 0;">
+                <h1 style="margin: 0;">Distress Alert!</h1>
+            </header>
+            
+            <section style="padding: 20px; background-color: #e0e0e0; color: #333;">
+                <p><strong>The user ${user.fullName} is in danger.</strong> Please contact them immediately.</p>
+                <p><strong>Location:</strong> ${preciseLocation}</p>
+                <p><strong>Device Type:</strong> ${deviceInfo.deviceType}</p>
+                <p><strong>User Agent:</strong> ${deviceInfo.userAgent}</p>
+                <p><strong>Phone Number:</strong> ${user.phoneNumber}</p>
+                <p><strong>Email:</strong> ${user.email}</p>
+                <img src="${user.profilePic}" alt="Profile Picture" style="width: 100px; height: auto;" />
+            </section>
+            
+            <footer style="background-color: #333; color: #aaa; text-align: center; padding: 10px 0;">
+                <p>&copy; 2024 Alertify. All rights reserved.</p>
+            </footer>
+        </div>
+    `;
+};
+
+module.exports = function descriptionTemplate(user, description) {
+    return `
+        <html>
+        <head>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 0;
+                    font-family: Arial, sans-serif;
+                    background-color: #f4f4f4;
+                }
+                .container {
+                    max-width: 600px;
+                    margin: 20px auto;
+                    background-color: white;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+                }
+                .header {
+                    background-color: #e53935; /* Sharp red for alert */
+                    color: white;
+                    text-align: center;
+                    padding: 20px 10px;
+                    font-size: 24px;
+                    font-weight: bold;
+                }
+                .body {
+                    background-color: #ffffff;
+                    padding: 30px 20px;
+                    color: #333;
+                    font-size: 16px;
+                    line-height: 1.6;
+                }
+                .body p {
+                    margin: 0 0 20px;
+                }
+                .description {
+                    background-color: #f1f1f1;
+                    padding: 15px;
+                    border-left: 4px solid #e53935;
+                    font-style: italic;
+                    color: #555;
+                }
+                .footer {
+                    background-color: #333;
+                    color: white;
+                    text-align: center;
+                    padding: 15px 10px;
+                    font-size: 14px;
+                }
+                .footer p {
+                    margin: 0;
+                }
+                .contact-info {
+                    font-weight: bold;
+                    color: #e53935;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    Distress Alert Update
+                </div>
+                <div class="body">
+                    <p><strong>${user.fullName}</strong> has provided an additional description regarding their distress situation. Please review the details below:</p>
+                    <div class="description">
+                        <p><strong>Description:</strong> ${description}</p>
+                    </div>
+                    <p>For immediate contact, refer to the following details:</p>
+                    <p><strong>Phone Number:</strong> <span class="contact-info">${user.phoneNumber}</span></p>
+                    <p><strong>Email:</strong> <span class="contact-info">${user.email}</span></p>
+                </div>
+                <div class="footer">
+                    <p>Distress Alert Service - Please act immediately</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+}
+
 
 

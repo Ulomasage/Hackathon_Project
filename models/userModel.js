@@ -39,11 +39,7 @@ const userSchema = new mongoose.Schema({
         required: true,
         trim:true
     },
-    profilePic: {
-        type: String,
-        require: true
-    },
-    gender:{
+       gender:{
         type: String,
         required: true,
         enum:["male","female"],
@@ -66,6 +62,7 @@ const userSchema = new mongoose.Schema({
         trim:true,
         toLowerCase:true
     },
+   
     password:{
         type:String
     },
@@ -83,7 +80,10 @@ const userSchema = new mongoose.Schema({
     // }]
 }, {timestamps: true})
 
-const UserModel = mongoose.model('User', userSchema);
+const UserModel = mongoose.model('Alertify', userSchema);
 
 module.exports = UserModel
+
+
+
 

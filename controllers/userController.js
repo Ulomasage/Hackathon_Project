@@ -1,65 +1,208 @@
 const UserModel = require('../models/userModel');
 const fs = require('fs')
-const bcrypt = require('bcrypt');
+const bcrypt = require("bcryptjs")
 const jwt = require('jsonwebtoken');
 const cloudinary = require('../utils/cloudinary.js')
 const sendMail = require(`../helpers/sendMail.js`);
-const { signUpTemplate,verifyTemplate,} = require(`../helpers/htmlTemplate.js`);
+const { signUpTemplate,verifyTemplate,emergencyContactTemplate} = require(`../helpers/htmlTemplate.js`);
+// exports.registerUser = async (req, res) => {
+//     try {
+//       const {
+//         fullName,
+//         email,
+//         password,
+//         address,
+//         gender,
+//         phoneNumber,
+//         confirmPassword,
+//         EmergencyPhoneNumbers, 
+//         EmergencyEmails,       
+//       } = req.body;
+  
+//       if (!fullName || !email || !password || !address || !gender || !phoneNumber || !confirmPassword) {
+//         return res.status(400).json({ message: "Kindly enter all details" });
+//       }
+  
+//       if (EmergencyPhoneNumbers.length < 3 || EmergencyPhoneNumbers.length > 5) {
+//         return res.status(400).json({ message: "Please enter at least 3 and at most 5 emergency phone numbers" });
+//       }
+  
+//       if (EmergencyEmails.length < 3 || EmergencyEmails.length > 5) {
+//         return res.status(400).json({ message: "Please enter at least 3 and at most 5 emergency emails" });
+//       }
+  
+//       const existingUser = await UserModel.findOne({ email });
+//       if (existingUser) {
+//         return res.status(400).json({ message: "User already exists" });
+//       }
+  
+//       if (confirmPassword !== password) {
+//         return res.status(400).json({ message: "Password does not match, kindly fill in your password" });
+//       }
+
+//       const createFolderResult = await cloudinary.api.create_folder('alertify');
+//       let picture = {}; // Empty object for profile picture
+//       if (req.files && req.files.profilePicture) {
+//           picture = await new Promise((resolve, reject) => {
+//               cloudinary.uploader.upload(req.files.profilePicture.tempFilePath, {
+//                   folder: 'alertify', // Specify the folder name here
+//                   allowed_formats: ['txt', 'doc', 'pdf', 'docx', 'png', 'jpeg'], // Allow these file formats
+//                   max_file_size: 2000000
+//               }, (error, result) => {
+//                   if (error) {
+//                       reject(error);
+//                   } else {
+//                       resolve(result);
+//                   }
+//               });
+//           });
+//       }
+
+  
+//       const saltedPassword = await bcrypt.genSalt(12);
+//       const hashedPassword = await bcrypt.hash(password, saltedPassword);
+  
+//       const user = new UserModel({
+//         fullName,
+//         address,
+//         gender,
+//         email: email.toLowerCase(),
+//         password: hashedPassword,
+//         phoneNumber,
+//         profilePicture: { public_id: picture.public_id, url: picture.url },
+//         EmergencyPhoneNumbers,  
+//         EmergencyEmails         
+//       });
+  
+//       const userToken = jwt.sign(
+//         { id: user._id, email: user.email },
+//         process.env.jwt_secret,
+//         { expiresIn: "3 Minutes" }
+//       );
+  
+//       const verifyLink = `${req.protocol}://${req.get("host")}/api/v1/user/verify/${userToken}`;
+//       await user.save();
+//       await sendMail({
+//         subject: `Kindly Verify your mail`,
+//         email: user.email,
+//         html: signUpTemplate(verifyLink, user.fullName),
+//       });
+  
+//       res.status(201).json({
+//         status: "created successfully",
+//         message: `Welcome ${user.fullName} to ALERTIFY, kindly check your mail to access your link to verify your account`,
+//         data: user,
+//       });
+//     } catch (error) {
+//       res.status(500).json({
+//         message: error.message,
+//       });
+//     }
+//   };
 
 
 exports.registerUser = async (req, res) => {
-  try {
-      const {fullName,email,password,address,gender,phoneNumber,confirmPassword,EmergencyPhoneNumbers,EmergencyEmails} = req.body;
-      if(!fullName || !email || !password || !address || !gender || !phoneNumber || !confirmPassword){
-          return res.status(400).json({message:"kindly enter all details"})
-      };
-      const existingUser = await UserModel.findOne({email})
-      if(existingUser){
-      return res.status(400).json({message:"user already exist"})
+    try {
+      const {
+        fullName,
+        email,
+        password,
+        address,
+        gender,
+        phoneNumber,
+        confirmPassword,
+        EmergencyPhoneNumbers, 
+        EmergencyEmails,       
+      } = req.body;
+  
+      // Check for all required fields
+      if (!fullName || !email || !password || !address || !gender || !phoneNumber || !confirmPassword) {
+        return res.status(400).json({ message: "Kindly enter all details" });
       }
-      if(confirmPassword !== password){
-        return res.status(400).json({message:"password does not match, kindly fill in your password"})
-       }else{
-      const saltedPassword = await bcrypt.genSalt(12)
-      const hashedPassword = await bcrypt.hash(password,saltedPassword)
-       
-      
-       const user = new UserModel({
-          fullName,
-          address,
-          gender,        
-          email:email.toLowerCase(),
-          password:hashedPassword,
-          phoneNumber,
-          EmergencyPhoneNumbers,
-          EmergencyEmails
-      })
+  
+      // Emergency contacts length check
+      if (EmergencyPhoneNumbers.length < 3 || EmergencyPhoneNumbers.length > 5) {
+        return res.status(400).json({ message: "Please enter at least 3 and at most 5 emergency phone numbers" });
+      }
+  
+      if (EmergencyEmails.length < 3 || EmergencyEmails.length > 5) {
+        return res.status(400).json({ message: "Please enter at least 3 and at most 5 emergency emails" });
+      }
+
+      // Check if the user already exists
+      const existingUser = await UserModel.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: "User already exists" });
+      }
+  
+      // Check if passwords match
+      if (confirmPassword !== password) {
+        return res.status(400).json({ message: "Password does not match, kindly fill in your password" });
+      }
+
+   
+
+      // Hash the password
+      const saltedPassword = await bcrypt.genSalt(12);
+      const hashedPassword = await bcrypt.hash(password, saltedPassword);
+  
+      // Create new user
+      const user = new UserModel({
+        fullName,
+        address,
+        gender,
+        email: email.toLowerCase(),
+        password: hashedPassword,
+        phoneNumber,
+        EmergencyPhoneNumbers,  
+        EmergencyEmails         
+      });
+  
+      // Create a token for the user
       const userToken = jwt.sign(
         { id: user._id, email: user.email },
-        process.env.jwt_secret,
+        process.env.JWT_SECRET,
         { expiresIn: "3 Minutes" }
-    );
-    const verifyLink = `${req.protocol}://${req.get("host")}/api/v1/user/verify/${userToken}`;
-    await user.save();
-    await sendMail({
+      );
+  
+      const verifyLink = `${req.protocol}://${req.get("host")}/api/v1/user/verify/${userToken}`;
+      
+      // Save the user
+      await user.save();
+
+      // Send verification email
+      await sendMail({
         subject: `Kindly Verify your mail`,
         email: user.email,
         html: signUpTemplate(verifyLink, user.fullName),
-    });
-      res.status(201).json({
-          status:'created successfully',
-          message: `Welcome ${user.fullName} to ALERTIFY, kindly check your mail to access your link to verify your account`,
-          data: user,
       });
-  }
-  } catch (error) {
-      res.status(500).json({
-          message: error.message
-      })
-  }
-}
+  
 
-1
+       for (const emergencyEmail of EmergencyEmails) {
+        const { name, email: contactEmail } = emergencyEmail;
+        const htmlContent = emergencyContactTemplate(fullName, name); 
+        await sendMail({
+          subject: `You have been added as an emergency contact on Alertify`,
+          email: contactEmail,
+          html: htmlContent,
+        });
+      }
+      // Respond with success
+      res.status(201).json({
+        status: "created successfully",
+        message: `Welcome ${user.fullName} to ALERTIFY, kindly check your mail to access your link to verify your account`,
+        data: user,
+      });
+    } catch (error) {
+      res.status(500).json({
+        message: error.message,
+      });
+    }
+};
+
+ 
+
+
 exports.logInUser = async(req,res)=>{
   try {
      const {email,password}=req.body
@@ -75,7 +218,7 @@ exports.logInUser = async(req,res)=>{
      if(!confirmPassword){
       return res.status(400).json({message:"incorrect password"})
       }
-      const token = await jwt.sign({userId:existingUser._id, email:existingUser.email, isAdmin: existingUser.isAdmin},process.env.JWT_SECRET,{expiresIn:"1h"})
+      const token = await jwt.sign({userId:existingUser._id, email:existingUser.email, isAdmin: existingUser.isAdmin},process.env.JWT_SECRET,{expiresIn:"5d"})
       res.status(200).json({
           message:`${existingUser.fullName}, you have successfully logged into your account`, data:existingUser, token
          })
@@ -84,6 +227,7 @@ exports.logInUser = async(req,res)=>{
       res.status(500).json(error.message)
   }
 }
+
 exports.makeAdmin = async(req,res)=>{
   try {
       const {userId} = req.params
@@ -311,6 +455,7 @@ exports.getAllUsers = async(req,res)=>{
       res.status(500).json(error.message)
   }
 }
+
 
 
 exports.removeUser = async(req,res)=>{
