@@ -5,7 +5,7 @@ const { logInValidator, signUpValidator } = require('../middleware/validator.js'
 const { authentication, isAdmin } = require('../middleware/authorization.js')
 const router = express.Router()
 
-router.post('/sign-up',signUpValidator,upload.single('profilePic'),registerUser)
+router.post('/sign-up',signUpValidator,registerUser)
 router.post(`/log-in`,logInValidator, logInUser)
 router.put("/make-admin/:userId", makeAdmin)
 router.get(`/verify/:token`, verifyEmail)
@@ -16,7 +16,7 @@ router.post(`/reset-password/:token`, resetPassword)
 router.get('/one/:userId', getOneUser)
 router.get('/all',authentication,isAdmin,getAllUsers)
 router.put('/update/:userId', upload.single('profilePic'), updateUser)
-router.delete(`/remove/:userId`,authentication,isAdmin,removeUser)
-router.post('/sign-out/userId',logOut);
+router.delete(`/remove/:userId`,isAdmin,removeUser)
+router.post('/sign-out',logOut);
 
 module.exports = router

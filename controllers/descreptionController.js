@@ -1,4 +1,4 @@
-const DescriptionModel = require('../models/descreptionModel');
+const DescriptionModel = require('../models/descriptionModel');
 const UserModel = require('../models/userModel');
 const sendMail = require('../helpers/sendMail');
 const twilioClient = require('../helpers/twiloConfig');
