@@ -1,110 +1,65 @@
+const UserModel = require('../models/userModel');
+const fs = require('fs')
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const UserModel = require('../models/UserModel'); 
-const sendMail = require('../utils/sendMail'); 
-const signUpTemplate = require('../templates/signUpTemplate'); 
-const cloudinary = require('../utils/cloudinary')
+const cloudinary = require('../utils/cloudinary.js')
+const sendMail = require(`../helpers/sendMail.js`);
+const { signUpTemplate,verifyTemplate,} = require(`../helpers/htmlTemplate.js`);
+
+
 exports.registerUser = async (req, res) => {
   try {
-    const { 
-      fullName, 
-      email, 
-      password, 
-      address, 
-      gender, 
-      phoneNumber, 
-      confirmPassword, 
-      EmergencyPhoneNumbers, 
-      EmergencyEmails 
-    } = req.body;
-
-    // Check if all required fields are provided
-    if (!fullName || !email || !password || !address || !gender || !phoneNumber || !confirmPassword) {
-      return res.status(400).json({ message: "Kindly enter all details" });
-    }
-
-    // Check if password and confirmPassword match
-    if (confirmPassword !== password) {
-      return res.status(400).json({ message: "Password does not match, kindly fill in your password" });
-    }
-
-    // Validate emergency contacts and emails
-    const minContacts = 3;
-    const maxContacts = 5;
-
-    if (EmergencyPhoneNumbers.length < minContacts || EmergencyPhoneNumbers.length > maxContacts) {
-      return res.status(400).json({ 
-        message: `Emergency phone numbers must be between ${minContacts} and ${maxContacts}. You provided ${EmergencyPhoneNumbers.length}.` 
-      });
-    }
-
-    if (EmergencyEmails.length < minContacts || EmergencyEmails.length > maxContacts) {
-      return res.status(400).json({ 
-        message: `Emergency emails must be between ${minContacts} and ${maxContacts}. You provided ${EmergencyEmails.length}.` 
-      });
-    }
-
-    // Check if user already exists
-    const existingUser = await UserModel.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-
-    // Hash the password
-    const saltedPassword = await bcrypt.genSalt(12);
-    const hashedPassword = await bcrypt.hash(password, saltedPassword);
-
-      // Handle profile picture upload
-      let profilePicUrl = '';
-      if (req.file) {
-        const result = await cloudinary.uploader.upload(req.file.path);
-        profilePicUrl = result.secure_url;
+      const {fullName,email,password,address,gender,phoneNumber,confirmPassword,EmergencyPhoneNumbers,EmergencyEmails} = req.body;
+      if(!fullName || !email || !password || !address || !gender || !phoneNumber || !confirmPassword){
+          return res.status(400).json({message:"kindly enter all details"})
+      };
+      const existingUser = await UserModel.findOne({email})
+      if(existingUser){
+      return res.status(400).json({message:"user already exist"})
       }
-
-    // Create a new user
-    const user = new UserModel({
-      fullName,
-      address,
-      gender,
-      email: email.toLowerCase(),
-      password: hashedPassword,
-      phoneNumber,
-      EmergencyPhoneNumbers,
-      EmergencyEmails,
-      profilePic: profilePicUrl
-    });
-
-    // Create a JWT token
-    const userToken = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.jwt_secret,
-      { expiresIn: "3m" } // Changed to 3 minutes
+      if(confirmPassword !== password){
+        return res.status(400).json({message:"password does not match, kindly fill in your password"})
+       }else{
+      const saltedPassword = await bcrypt.genSalt(12)
+      const hashedPassword = await bcrypt.hash(password,saltedPassword)
+       
+      
+       const user = new UserModel({
+          fullName,
+          address,
+          gender,        
+          email:email.toLowerCase(),
+          password:hashedPassword,
+          phoneNumber,
+          EmergencyPhoneNumbers,
+          EmergencyEmails
+      })
+      const userToken = jwt.sign(
+        { id: user._id, email: user.email },
+        process.env.jwt_secret,
+        { expiresIn: "3 Minutes" }
     );
-
-    // Generate verification link
     const verifyLink = `${req.protocol}://${req.get("host")}/api/v1/user/verify/${userToken}`;
-
-    // Save the user and send verification email
     await user.save();
     await sendMail({
-      subject: "Kindly Verify Your Mail",
-      email: user.email,
-      html: signUpTemplate(verifyLink, user.fullName),
+        subject: `Kindly Verify your mail`,
+        email: user.email,
+        html: signUpTemplate(verifyLink, user.fullName),
     });
-
-    res.status(201).json({
-      status: 'Created successfully',
-      message: `Welcome ${user.fullName} to ALERTIFY. Kindly check your mail to access the link to verify your account.`,
-      data: user,
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      message: error.message
-    });
+      res.status(201).json({
+          status:'created successfully',
+          message: `Welcome ${user.fullName} to ALERTIFY, kindly check your mail to access your link to verify your account`,
+          data: user,
+      });
   }
-};
+  } catch (error) {
+      res.status(500).json({
+          message: error.message
+      })
+  }
+}
 
+1
 exports.logInUser = async(req,res)=>{
   try {
      const {email,password}=req.body
@@ -120,15 +75,34 @@ exports.logInUser = async(req,res)=>{
      if(!confirmPassword){
       return res.status(400).json({message:"incorrect password"})
       }
-      const token = await jwt.sign({userId:existingUser._id, email:existingUser.email, isAdmin: existingUser.isAdmin},process.env.JWT_SECRET,{expiresIn:"1h"})
+  
+      // Extract emergency contact IDs
+      const contactIds = existingUser.EmergencyContacts.map(contact => contact.contactId);
+  
+      // Create JWT token with contact IDs
+      const token = await jwt.sign(
+        {
+          userId: existingUser._id,
+          email: existingUser.email,
+          isAdmin: existingUser.isAdmin,
+          contactIds: contactIds,  // Include contact IDs in the token
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "5d" }
+      );
+  
+      // Respond with success
       res.status(200).json({
-          message:`${existingUser.fullName}, you have successfully logged into your account`, data:existingUser, token
-         })
+        message: `${existingUser.fullName}, you have successfully logged into your account`,
+        data: existingUser,
+        token,
+      });
+  
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  };
 
-  } catch (error) {
-      res.status(500).json(error.message)
-  }
-}
 exports.makeAdmin = async(req,res)=>{
   try {
       const {userId} = req.params
@@ -355,6 +329,7 @@ exports.getAllUsers = async(req,res)=>{
       res.status(500).json(error.message)
   }
 }
+
 
 
 exports.removeUser = async(req,res)=>{
