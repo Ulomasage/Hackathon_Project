@@ -4,8 +4,9 @@ const UserModel = require('../models/userModel');
 const sendMail = require('../helpers/sendMail');     
 const twilioClient = require('../helpers/twiloConfig'); 
 require('dotenv').config();
-const getUserIdFromToken = require('../middleware/authorization')
-const generateDistressTemplate = require('../helpers/htmlTemplate');
+const getUserIdFromToken = require('../middleware/authorization');
+const {generateDistressTemplate} = require('../helpers/htmlTemplate');
+
 // Function to get client IP address
 function getClientIp(req) {
     const forwarded = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -69,8 +70,12 @@ async function sendDistressMessages(user, preciseLocation, deviceInfo) {
     
     const message = generateDistressTemplate(user, preciseLocation, deviceInfo);
 
-    // Send email to each emergency contact
-    const emailPromises = user.EmergencyEmails.map(contact => {
+    // Filter emergency contacts into emails and phone numbers
+    const emailContacts = user.EmergencyContacts.filter(contact => contact.email);
+    const phoneContacts = user.EmergencyContacts.filter(contact => contact.phoneNumber);
+
+    // Send email to each emergency contact with an email
+    const emailPromises = emailContacts.map(contact => {
         return sendMail({
             email: contact.email,
             subject: subject,
@@ -84,16 +89,16 @@ async function sendDistressMessages(user, preciseLocation, deviceInfo) {
 
     await Promise.all(emailPromises);
 
-    // Send SMS to each emergency contact
-    const smsPromises = user.EmergencyPhoneNumbers.map(contact => {
+    // Send SMS to each emergency contact with a phone number
+    const smsPromises = phoneContacts.map(contact => {
         return twilioClient.messages.create({
             body: `Distress Alert! The user ${user.fullName} is in danger. Location: ${preciseLocation}. Please contact them immediately.`,
             from: process.env.TWILIO_PHONE_NUMBER,
-            to: contact.number,
+            to: contact.phoneNumber,
         }).then(() => {
-            console.log(`SMS sent to ${contact.number}`);
+            console.log(`SMS sent to ${contact.phoneNumber}`);
         }).catch(error => {
-            console.error(`Error sending SMS to ${contact.number}:`, error.message);
+            console.error(`Error sending SMS to ${contact.phoneNumber}:`, error.message);
         });
     });
 
@@ -101,13 +106,10 @@ async function sendDistressMessages(user, preciseLocation, deviceInfo) {
 }
 
 const triggerDistressAlert = async (req, res) => {
-   // const { userId } = req.body;
     // Get user ID from the token in headers
     const userId = req.user.id || req.user._id || req.user.userId; 
     console.log("User ID from token:", userId);
 
-
-   
     const user = await UserModel.findById(userId);
     if (!user) {
         return res.status(404).json({ message: 'User not found' });
@@ -120,7 +122,7 @@ const triggerDistressAlert = async (req, res) => {
     // Get device info
     const deviceInfo = getUserAgentDetails(req);
 
-   
+    // Send distress messages (both email and SMS)
     await sendDistressMessages(user, preciseLocation, deviceInfo);
 
     res.json({ message: 'Distress messages sent successfully' });
