@@ -105,6 +105,7 @@ async function sendDistressMessages(user, preciseLocation, deviceInfo) {
     await Promise.all(smsPromises);
 }
 
+
 const triggerDistressAlert = async (req, res) => {
     // Get user ID from the token in headers
     const userId = req.user.id || req.user._id || req.user.userId; 

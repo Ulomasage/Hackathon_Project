@@ -198,6 +198,7 @@ exports.registerUser = async (req, res) => {
     }
   };
   
+  
 
   exports.logInUser = async (req, res) => {
     try {
